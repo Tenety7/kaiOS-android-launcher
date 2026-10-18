@@ -1,0 +1,48 @@
+
+name: Build APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find and extract project ZIP
+        run: |
+          ZIP=$(find . -maxdepth 1 -type f -iname "*.zip" | head -n 1)
+          if [ -z "$ZIP" ]; then
+            echo "No project ZIP found in repository root"
+            exit 1
+          fi
+          mkdir source
+          unzip -q "$ZIP" -d source
+          echo "Project extracted from $ZIP"
+          find source -name gradlew -type f
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build debug APK
+        run: |
+          PROJECT=$(find source -name gradlew -type f | head -n 1)
+          if [ -z "$PROJECT" ]; then
+            echo "Gradle wrapper not found"
+            exit 1
+          fi
+          cd "$(dirname "$PROJECT")"
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: source/**/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          
